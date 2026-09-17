@@ -7,6 +7,8 @@ import path from 'node:path'
 export interface ModuleInfo {
     name: string
     path: string
+    /** The file of the module class, where the entries are declared. */
+    file?: string
     entries: string[]
 }
 
@@ -69,20 +71,21 @@ export function resolvePluginConfig(config: PluginConfig = {}): ResolvedPluginCo
 
 /** Checks one module of the `modules` option or of Artisan's output. */
 export function validateModule(module: unknown): ModuleInfo {
-    const { name, path, entries } = (module ?? {}) as Partial<ModuleInfo>
+    const { name, path, file, entries } = (module ?? {}) as Partial<ModuleInfo>
 
     if (
         typeof name !== 'string' ||
         typeof path !== 'string' ||
+        (file !== undefined && typeof file !== 'string') ||
         !Array.isArray(entries) ||
         entries.some((entry) => typeof entry !== 'string')
     ) {
         throw new Error(
             'laramod-vite-plugin: a module must look like ' +
-                '{ name: string, path: string, entries: string[] }, got ' +
+                '{ name: string, path: string, file?: string, entries: string[] }, got ' +
                 JSON.stringify(module),
         )
     }
 
-    return { name, path, entries }
+    return file === undefined ? { name, path, entries } : { name, path, file, entries }
 }

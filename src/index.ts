@@ -1,10 +1,11 @@
+import path from 'node:path'
 import laravel, { refreshPaths } from 'laravel-vite-plugin'
-import type { Plugin } from 'vite'
+import { normalizePath, type Plugin } from 'vite'
 import { moduleAliases, userAliasNames, writeAliases } from './aliases.js'
 import { resolvePluginConfig, type ModuleInfo, type PluginConfig, type ResolvedPluginConfig } from './config.js'
 import { appendEntries, moduleEntries } from './entries.js'
 import { loadModules } from './modules.js'
-import { moduleRefreshPaths } from './refresh.js'
+import { moduleRefreshPaths, restartFiles } from './refresh.js'
 
 export type { ModuleInfo, PluginConfig, ResolvedPluginConfig } from './config.js'
 
@@ -25,7 +26,7 @@ export function laramod(laravelConfig: LaravelConfig, config: PluginConfig = {})
     const resolved = resolvePluginConfig(config)
     const modules = loadModules(resolved)
 
-    return [...laravel(withModules(laravelConfig, resolved.root, modules)), aliases(resolved, modules)]
+    return [...laravel(withModules(laravelConfig, resolved.root, modules)), aliases(resolved, modules), restart(resolved, modules)]
 }
 
 /** Adds what the modules need to the configuration of laravel-vite-plugin, through its public options only. */
@@ -65,6 +66,34 @@ function aliases(config: ResolvedPluginConfig, modules: ModuleInfo[]): Plugin {
                         ? Object.entries(ours).map(([find, replacement]) => ({ find, replacement }))
                         : ours,
                 },
+            }
+        },
+    }
+}
+
+/**
+ * Restarts the dev server when the list of modules or a module class changes. A restart
+ * evaluates vite.config again, so Artisan is asked for the modules and their entries anew.
+ */
+function restart(config: ResolvedPluginConfig, modules: ModuleInfo[]): Plugin {
+    const files = restartFiles(config.root, modules)
+
+    return {
+        name: 'laramod:restart',
+        apply: 'serve',
+        configureServer(server) {
+            server.watcher.add(files)
+
+            for (const event of ['add', 'change', 'unlink'] as const) {
+                server.watcher.on(event, (file) => {
+                    if (files.includes(normalizePath(path.resolve(file)))) {
+                        server.config.logger.info(`laramod: ${path.relative(config.root, file)} changed, restarting`, {
+                            timestamp: true,
+                        })
+
+                        void server.restart()
+                    }
+                })
             }
         },
     }

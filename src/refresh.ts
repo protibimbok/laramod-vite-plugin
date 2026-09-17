@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { normalizePath } from 'vite'
 import type { ModuleInfo } from './config.js'
 
 /**
@@ -17,5 +18,15 @@ export function moduleRefreshPaths(root: string, modules: ModuleInfo[]): string[
         MODULE_PATHS.map((pattern) => path.posix.join(module.path.replace(/\\/g, '/'), pattern)).filter((pattern) =>
             fs.existsSync(path.resolve(root, pattern.replace(/\*\*$/, ''))),
         ),
+    )
+}
+
+/**
+ * The files that decide which modules and entries exist: the list in
+ * bootstrap/modules.php and the module classes that declare the entries.
+ */
+export function restartFiles(root: string, modules: ModuleInfo[]): string[] {
+    return ['bootstrap/modules.php', ...modules.flatMap((module) => module.file ?? [])].map((file) =>
+        normalizePath(path.resolve(root, file)),
     )
 }

@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, test } from 'node:test'
-import { normalizePath, resolveConfig } from 'vite'
+import { createServer, normalizePath, resolveConfig } from 'vite'
 import laramod from '../dist/index.js'
 
 const blog = { name: 'blog', path: 'Modules/Blog', entries: ['Modules/Blog/resources/js/app.js'] }
@@ -166,6 +166,33 @@ test('creates no jsconfig unless asked to', async () => {
     })
 })
 
+test('restarts the dev server when the module list or a module class changes', async () => {
+    const root = project([blog])
+    const module = { ...blog, file: 'Modules/Blog/BlogModule.php' }
+
+    const server = await createServer({
+        configFile: false,
+        logLevel: 'silent',
+        root,
+        server: { middlewareMode: true, ws: false },
+        plugins: laramod({ input: appInput }, { root, modules: [module] }),
+    })
+
+    try {
+        const restarts = []
+        server.restart = async () => void restarts.push('restart')
+
+        server.watcher.emit('change', path.join(root, 'resources/js/app.js'))
+        assert.deepEqual(restarts, [])
+
+        server.watcher.emit('change', path.join(root, 'bootstrap/modules.php'))
+        server.watcher.emit('change', path.join(root, 'Modules/Blog/BlogModule.php'))
+        assert.deepEqual(restarts, ['restart', 'restart'])
+    } finally {
+        await server.close()
+    }
+})
+
 test('asks artisan for the modules, once', async () => {
     const root = project([blog])
 
@@ -197,6 +224,7 @@ test('rejects malformed options', async () => {
     const { resolvePluginConfig } = await import('../dist/config.js')
 
     assert.throws(() => resolvePluginConfig({ modules: [{ name: 'blog' }] }), /a module must look like/)
+    assert.throws(() => resolvePluginConfig({ modules: [{ ...blog, file: 1 }] }), /a module must look like/)
     assert.throws(() => resolvePluginConfig({ php: ' ' }), /must not be empty/)
     assert.deepEqual(resolvePluginConfig(), { root: process.cwd(), php: 'php', modules: null, addAliases: 'update-only' })
 })
