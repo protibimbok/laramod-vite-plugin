@@ -1,6 +1,6 @@
 {
     "name": "laramod-vite-plugin",
-    "version": "0.0.0",
+    "version": "0.1.0",
     "description": "Vite plugin for Laravel applications built with protibimbok/laramod modules.",
     "type": "module",
     "keywords": [
@@ -12,6 +12,14 @@
     ],
     "license": "MIT",
     "author": "Saad <sakib.saad.khan@gmail.com>",
+    "homepage": "https://github.com/protibimbok/laramod-vite-plugin#readme",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/protibimbok/laramod-vite-plugin.git"
+    },
+    "bugs": {
+        "url": "https://github.com/protibimbok/laramod-vite-plugin/issues"
+    },
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts",
     "exports": {
